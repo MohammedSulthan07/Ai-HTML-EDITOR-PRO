@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ai Pro - Device Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .code-area {
+            font-family: 'Fira Code', monospace;
+            resize: none;
+            outline: none;
+        }
+
+        /* Device Mockup Logic */
+        .preview-container {
+            background: #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: auto;
+            transition: all 0.3s ease;
+            padding: 40px;
+        }
+
+        .device-wrapper {
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .device-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            pointer-events: none;
+            filter: drop-shadow(0 25px 50px rgba(0,0,0,0.5));
+            z-index: 5; /* Lowered z-index to stay behind the content */
+            position: relative;
+        }
+
+        /* Iframe Positioning inside SVGs */
+        .iframe-container {
+            position: absolute;
+            background: white;
+            overflow: hidden;
+            z-index: 10; /* Raised z-index to stay on top of the SVG frame */
+        }
+
+        /* Precise Mapping for Phone SVG */
+        .mode-phone { width: 320px; height: 650px; }
+        .mode-phone .iframe-container {
+            top: 7.2%;
+            left: 13.2%;
+            width: 73.6%;
+            height: 85.6%;
+            border-radius: 38px;
+        }
+
+        /* Precise Mapping for Tablet SVG */
+        .mode-tablet { width: 850px; height: 600px; transform: scale(0.75); }
+        .mode-tablet .iframe-container {
+            top: 8.5%;
+            left: 6.8%;
+            width: 86.4%;
+            height: 83%;
+            border-radius: 24px;
+        }
+
+        /* Precise Mapping for Laptop SVG */
+        .mode-laptop { width: 950px; height: 580px; transform: scale(0.75); }
+        .mode-laptop .iframe-container {
+            top: 8.4%;
+            left: 12.4%;
+            width: 75.2%;
+            height: 78.8%;
+            border-radius: 2px;
+        }
+
+        /* Full Screen Transitions - Fixed gaps */
+        .is-fullscreen #editorSection { display: none; }
+        .is-fullscreen #previewWrapper { 
+            width: 100vw !important; 
+            height: 100vh !important; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            z-index: 50; 
+            padding: 0;
+        }
+        .is-fullscreen .mode-laptop { 
+            transform: scale(1); 
+            width: 100vw; 
+            height: 100vh; 
+        }
+        .is-fullscreen .mode-laptop .device-svg { display: none; } 
+        .is-fullscreen .mode-laptop .iframe-container { 
+            top: 0 !important; 
+            left: 0 !important; 
+            width: 100% !important; 
+            height: 100% !important; 
+            border-radius: 0;
+            z-index: 60;
+        }
+
+        .hidden { display: none; }
+
+        /* Custom Scrollbar for Editor */
+        .code-area::-webkit-scrollbar { width: 8px; }
+        .code-area::-webkit-scrollbar-track { background: #0d1117; }
+        .code-area::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen" id="mainBody">
+
+    <!-- Navbar -->
+    <header id="mainHeader" class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i class="fas fa-code text-white"></i>
+            </div>
+            <h1 class="text-xl font-semibold tracking-tight">Ai-HTML;EDITOR <span class="text-blue-500 text-xs font-normal">PRO</span></h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+                <button onclick="setDevice('phone')" id="btn-phone" class="device-btn p-2 px-3 rounded-md hover:bg-slate-700 transition" title="Phone">
+                    <i class="fas fa-mobile-alt"></i>
+                </button>
+                <button onclick="setDevice('tablet')" id="btn-tablet" class="device-btn p-2 px-3 rounded-md hover:bg-slate-700 transition" title="Tablet">
+                    <i class="fas fa-tablet-alt"></i>
+                </button>
+                <button onclick="setDevice('laptop')" id="btn-laptop" class="device-btn p-2 px-3 rounded-md bg-blue-600 text-white transition" title="Laptop">
+                    <i class="fas fa-laptop"></i>
+                </button>
+            </div>
+
+            <button onclick="expandPreview()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 px-4 rounded-lg flex items-center gap-2 transition">
+                <i class="fas fa-expand-alt"></i> <span>Full Screen</span>
+            </button>
+            
+            <button onclick="downloadCode()" class="bg-blue-600 hover:bg-blue-500 p-2 px-4 rounded-lg flex items-center gap-2 transition font-medium">
+                <i class="fas fa-cloud-download-alt"></i> <span>Save .html</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        <!-- Editor -->
+        <section class="w-1/2 flex flex-col border-r border-slate-800 bg-[#0d1117]" id="editorSection">
+            <div class="bg-slate-900/50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-800 flex justify-between items-center">
+                <span>Editor</span>
+                <span id="charCount">0 Characters</span>
+            </div>
+            <textarea id="htmlCode" class="code-area flex-1 w-full p-6 bg-transparent text-gray-300 text-sm leading-relaxed" spellcheck="false" oninput="updatePreview()"><!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { 
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: white;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(12px);
+      padding: 40px;
+      border-radius: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      max-width: 85%;
+    }
+    h1 { font-size: 2rem; margin-bottom: 1rem; color: #60a5fa; }
+    p { color: #94a3b8; line-height: 1.6; font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Ai Pro</h1>
+    <p>Type the code to check the preview!</p>
+  </div>
+</body>
+</html></textarea>
+        </section>
+
+        <!-- Preview Wrapper -->
+        <section class="w-1/2 preview-container" id="previewWrapper">
+            <!-- Full Screen Back Button -->
+            <button id="backBtn" onclick="exitFullScreen()" class="hidden absolute top-6 left-6 z-[100] bg-white text-slate-900 px-6 py-2.5 rounded-full font-bold border-none hover:bg-slate-100 transition shadow-2xl flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to Editor
+            </button>
+
+            <!-- Device Shell -->
+            <div id="deviceWrapper" class="device-wrapper mode-laptop">
+                <!-- SVG Frames (Lower Z-Index) -->
+                <img src="phone.svg" id="svg-phone" class="device-svg hidden" alt="Phone Frame">
+                <img src="tablet.svg" id="svg-tablet" class="device-svg hidden" alt="Tablet Frame">
+                <img src="laptop.svg" id="svg-laptop" class="device-svg" alt="Laptop Frame">
+                
+                <!-- Screen Area (Higher Z-Index) -->
+                <div class="iframe-container">
+                    <iframe id="previewFrame" class="w-full h-full border-none bg-white"></iframe>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const htmlInput = document.getElementById('htmlCode');
+        const previewFrame = document.getElementById('previewFrame');
+        const deviceWrapper = document.getElementById('deviceWrapper');
+        const mainBody = document.getElementById('mainBody');
+        const backBtn = document.getElementById('backBtn');
+        const mainHeader = document.getElementById('mainHeader');
+
+        window.onload = () => updatePreview();
+
+        function updatePreview() {
+            const code = htmlInput.value;
+            const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(code);
+            iframeDoc.close();
+            document.getElementById('charCount').innerText = `${code.length} Characters`;
+        }
+
+        function setDevice(device) {
+            // Update Wrapper Classes
+            deviceWrapper.classList.remove('mode-phone', 'mode-tablet', 'mode-laptop');
+            deviceWrapper.classList.add(`mode-${device}`);
+
+            // Update SVG visibility
+            document.getElementById('svg-phone').classList.add('hidden');
+            document.getElementById('svg-tablet').classList.add('hidden');
+            document.getElementById('svg-laptop').classList.add('hidden');
+            document.getElementById(`svg-${device}`).classList.remove('hidden');
+
+            // Update UI Buttons
+            document.querySelectorAll('.device-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('hover:bg-slate-700');
+            });
+            const activeBtn = document.getElementById(`btn-${device}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-blue-600', 'text-white');
+                activeBtn.classList.remove('hover:bg-slate-700');
+            }
+        }
+
+        function expandPreview() {
+            mainBody.classList.add('is-fullscreen');
+            backBtn.classList.remove('hidden');
+            mainHeader.style.display = 'none';
+            setDevice('laptop');
+        }
+
+        function exitFullScreen() {
+            mainBody.classList.remove('is-fullscreen');
+            backBtn.classList.add('hidden');
+            mainHeader.style.display = 'flex';
+            setDevice('laptop');
+        }
+
+        function downloadCode() {
+            const code = htmlInput.value;
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'pixel-project.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        htmlInput.addEventListener('keydown', function(e) {
+            if (e.key == 'Tab') {
+                e.preventDefault();
+                var start = this.selectionStart;
+                var end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 2;
+            }
+        });
+    </script>
+</body>
+</html>
